@@ -1,15 +1,9 @@
-import Groq from "groq-sdk";
 import Parser from "rss-parser";
 import axios from "axios";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 
 dotenv.config();
-
-// Initialize Groq
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -182,7 +176,7 @@ function passesStage1Filter(title, snippet) {
 }
 
 // ============================================
-// STAGE 2: GROQ PROCESSING
+// STAGE 2: GROQ PROCESSING (HTTP API)
 // ============================================
 
 async function processWithGroq(title, summary, url) {
@@ -207,14 +201,28 @@ Company tiers: aaa, mid_tier, indie_publisher
 Sentiment: positive, neutral, negative
 Impact score: 1-10`;
 
-    const message = await groq.messages.create({
-      model: "mixtral-8x7b-32768",
-      max_tokens: 500,
-      messages: [{ role: "user", content: prompt }],
-    });
+    const response = await axios.post(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        model: "mixtral-8x7b-32768",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-    const responseText =
-      message.content[0].type === "text" ? message.content[0].text : "";
+    const responseText = response.data.choices[0].message.content;
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON found in response");
 
@@ -455,18 +463,34 @@ async function start() {
   console.log("🚀 Gaming News Aggregator Backend Starting...");
   console.log("📍 Environment:", process.env.NODE_ENV || "development");
 
+  // Test Groq connection
   try {
-    const testMessage = await groq.messages.create({
-      model: "mixtral-8x7b-32768",
-      max_tokens: 10,
-      messages: [{ role: "user", content: "Test" }],
-    });
+    const response = await axios.post(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        model: "mixtral-8x7b-32768",
+        messages: [
+          {
+            role: "user",
+            content: "Test",
+          },
+        ],
+        max_tokens: 10,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
     console.log("✅ Groq API connected");
   } catch (error) {
     console.error("❌ Groq API error:", error.message);
     process.exit(1);
   }
 
+  // Test Supabase connection
   try {
     const { data } = await supabase
       .from("articles")
