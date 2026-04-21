@@ -89,12 +89,12 @@ Sentiment: positive, neutral, negative
 Impact score: 1-10`;
 
     const requestBody = {
-      model: "mixtral-8x7b-32768",
+      model: "llama-3.1-70b-versatile",
       messages: [{ role: "user", content: prompt }],
       max_tokens: 500,
     };
 
-    console.log("📤 Sending request to Groq...");
+    console.log("📤 Sending request to Groq with llama-3.1-70b-versatile...");
     const response = await axios.post(
       "https://api.groq.com/openai/v1/chat/completions",
       requestBody,
@@ -127,7 +127,6 @@ Impact score: 1-10`;
     console.error("Status Text:", error.response?.statusText);
     console.error("Error Message:", error.message);
     console.error("Full Response:", JSON.stringify(error.response?.data, null, 2));
-    console.error("Request Headers:", error.config?.headers);
     return { success: false, error: error.message };
   }
 }
@@ -333,9 +332,9 @@ async function start() {
   console.log("🔑 API Key present:", !!process.env.GROQ_API_KEY);
 
   try {
-    console.log("🔍 Testing Groq API connection...");
+    console.log("🔍 Testing Groq API connection with llama-3.1-70b-versatile...");
     const testBody = {
-      model: "mixtral-8x7b-32768",
+      model: "llama-3.1-70b-versatile",
       messages: [{ role: "user", content: "Say: success" }],
       max_tokens: 10,
     };
@@ -350,7 +349,7 @@ async function start() {
         },
       }
     );
-    console.log("✅ Groq API connected successfully");
+    console.log("✅ Groq API connected successfully with llama-3.1-70b-versatile");
   } catch (error) {
     console.error("❌ GROQ TEST FAILED - ERROR DETAILS:");
     console.error("Status Code:", error.response?.status);
