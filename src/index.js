@@ -6,8 +6,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Initialize Groq with proper async handling
-const groq = new Groq.default({
+// Initialize Groq
+const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
