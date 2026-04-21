@@ -1,4 +1,3 @@
-// gaming-news-backend/src/index.js
 import Groq from 'groq-sdk';
 import Parser from 'rss-parser';
 import axios from 'axios';
@@ -7,8 +6,9 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Initialize clients
-const groq = new Groq({
+// Initialize clients - Fixed Groq import
+const GroqClient = Groq.default || Groq;
+const groq = new GroqClient({
   apiKey: process.env.GROQ_API_KEY,
 });
 
