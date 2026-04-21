@@ -6,9 +6,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Initialize clients - Fixed Groq import
-const GroqClient = Groq.default || Groq;
-const groq = new GroqClient({
+// Initialize Groq with proper async handling
+const groq = new Groq.default({
   apiKey: process.env.GROQ_API_KEY,
 });
 
@@ -28,30 +27,22 @@ const rssParser = new Parser({
 // ============================================
 
 const DECISION_MATRIX = {
-  // Priority news keywords (Stage 1)
   priorityKeywords: [
-    // Studio/company signals
     'Sony', 'Microsoft', 'Nintendo', 'Take-Two', 'Ubisoft', 'Square Enix', 'Capcom',
     'Bandai Namco', 'Activision', 'Rockstar', 'Bethesda', 'SEGA', 'Konami', 'Embracer',
     'Devolver', 'FromSoftware', 'Obsidian', 'Remedy', 'Naughty Dog', 'Insomniac',
     'Bungie', 'Epic', 'Valve', 'Blizzard', 'Annapurna', 'Raw Fury', 'Team17',
-    
-    // News type keywords
     'acquisition', 'acquired', 'buyout', 'merger', 'layoffs', 'restructuring',
     'shutdown', 'closure', 'IPO', 'going public', 'funding round', 'partnership',
     'collaboration', 'launch', 'release', 'announcement', 'reveals', 'resignation',
     'CEO change', 'new CEO', 'new president', 'founded', 'game sales', 'sales figures',
-    
-    // Major game titles
     'GTA', 'Grand Theft Auto', 'Elder Scrolls', 'Final Fantasy', 'Call of Duty',
     'Assassin\'s Creed', 'Legend of Zelda', 'Mario', 'Pokémon', 'Fortnite',
     'Elden Ring', 'Baldur\'s Gate', 'Starfield', 'Cyberpunk', 'Diablo',
     'Overwatch', 'World of Warcraft'
   ],
 
-  // Exclusion keywords (Stage 2)
   exclusionKeywords: [
-    // Topics to skip
     'esports', 'tournament', 'esports league', 'LAN event', 'competitive gaming',
     'Twitch', 'streamer', 'Kick', 'YouTube Gaming', 'live streaming', 'stream',
     'iOS game', 'Android exclusive', 'mobile gaming', 'app store',
@@ -63,10 +54,8 @@ const DECISION_MATRIX = {
     'mod showcase', 'community creation'
   ],
 
-  // Company blacklist
   blacklist: ['EA', 'Electronic Arts'],
 
-  // Geographic focus (for filtering)
   priorityRegions: ['US', 'EU', 'Japan', 'South Korea', 'Canada', 'Australia'],
 };
 
@@ -77,21 +66,18 @@ const DECISION_MATRIX = {
 function passesStage1Filter(title, snippet) {
   const text = `${title} ${snippet}`.toLowerCase();
   
-  // Check if contains priority keywords
   const hasPriority = DECISION_MATRIX.priorityKeywords.some(keyword =>
     text.includes(keyword.toLowerCase())
   );
   
   if (!hasPriority) return false;
 
-  // Check if contains exclusion keywords
   const hasExclusion = DECISION_MATRIX.exclusionKeywords.some(keyword =>
     text.includes(keyword.toLowerCase())
   );
   
   if (hasExclusion) return false;
 
-  // Check if blacklisted company
   const isBlacklisted = DECISION_MATRIX.blacklist.some(company =>
     text.includes(company.toLowerCase())
   );
@@ -125,7 +111,7 @@ Extract and return ONLY valid JSON (no markdown, no preamble):
 Categories: layoff, acquisition, release, business, trend, leadership
 Company tiers: aaa, mid_tier, indie_publisher
 Sentiment: positive, neutral, negative
-Impact score: 1-10 (9-10 major M&A/studio shutdown, 7-8 significant news, 5-6 notable, 3-4 niche)`;
+Impact score: 1-10`;
 
     const message = await groq.messages.create({
       model: 'mixtral-8x7b-32768',
@@ -134,8 +120,6 @@ Impact score: 1-10 (9-10 major M&A/studio shutdown, 7-8 significant news, 5-6 no
     });
 
     const responseText = message.content[0].type === 'text' ? message.content[0].text : '';
-    
-    // Parse JSON from response
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('No JSON found in response');
     
@@ -162,21 +146,12 @@ Impact score: 1-10 (9-10 major M&A/studio shutdown, 7-8 significant news, 5-6 no
 
 function calculateDigestScore(article) {
   let score = article.impact_score || 5;
-
-  // Add points for multiple AAA studios
-  const aaaCount = Object.values(article.company_tiers || {})
-    .filter(tier => tier === 'aaa').length;
+  const aaaCount = Object.values(article.company_tiers || {}).filter(tier => tier === 'aaa').length;
   if (aaaCount >= 2) score += 2;
-
-  // Add points for freshness (within 4 hours)
   const ageHours = (Date.now() - new Date(article.published_at)) / (1000 * 60 * 60);
   if (ageHours < 4) score += 0.5;
-
-  // Subtract points for single indie projects
-  const indieCount = Object.values(article.company_tiers || {})
-    .filter(tier => tier === 'indie_publisher').length;
+  const indieCount = Object.values(article.company_tiers || {}).filter(tier => tier === 'indie_publisher').length;
   if (indieCount > 0 && article.companies.length === 1) score -= 2;
-
   return Math.min(score, 10);
 }
 
@@ -206,7 +181,6 @@ async function scrapeRSSFeeds() {
       const feed = await rssParser.parseURL(source.url);
 
       for (const item of feed.items.slice(0, 10)) {
-        // Skip if article already exists
         const { data: existing } = await supabase
           .from('articles')
           .select('id')
@@ -215,11 +189,9 @@ async function scrapeRSSFeeds() {
 
         if (existing) continue;
 
-        // Stage 1: Keyword filter
         const snippet = item.contentSnippet || item.summary || '';
         if (!passesStage1Filter(item.title, snippet)) continue;
 
-        // Create article record
         const { data: article, error } = await supabase
           .from('articles')
           .insert({
@@ -237,15 +209,9 @@ async function scrapeRSSFeeds() {
           continue;
         }
 
-        // Stage 2: Groq processing
-        const groqResult = await processWithGroq(
-          item.title,
-          snippet,
-          item.link
-        );
+        const groqResult = await processWithGroq(item.title, snippet, item.link);
 
         if (groqResult.success) {
-          // Update article with Groq data
           await supabase
             .from('articles')
             .update({
@@ -267,7 +233,6 @@ async function scrapeRSSFeeds() {
         }
       }
 
-      // Update last fetched time
       await supabase
         .from('feed_sources')
         .update({ last_fetched_at: new Date() })
@@ -290,9 +255,7 @@ async function scrapeReddit(subreddit) {
     console.log(`📱 Scraping r/${subreddit}...`);
     const response = await axios.get(
       `https://www.reddit.com/r/${subreddit}/.json?limit=25`,
-      {
-        headers: { 'User-Agent': 'Gaming-News-Aggregator/1.0' }
-      }
+      { headers: { 'User-Agent': 'Gaming-News-Aggregator/1.0' } }
     );
 
     const posts = response.data.data.children;
@@ -301,7 +264,6 @@ async function scrapeReddit(subreddit) {
     for (const post of posts) {
       const { title, url, created_utc, selftext } = post.data;
 
-      // Skip if already exists
       const { data: existing } = await supabase
         .from('articles')
         .select('id')
@@ -310,10 +272,8 @@ async function scrapeReddit(subreddit) {
 
       if (existing) continue;
 
-      // Stage 1: Keyword filter
       if (!passesStage1Filter(title, selftext)) continue;
 
-      // Create article record
       const { data: article, error } = await supabase
         .from('articles')
         .insert({
@@ -328,7 +288,6 @@ async function scrapeReddit(subreddit) {
 
       if (error) continue;
 
-      // Stage 2: Groq processing
       const groqResult = await processWithGroq(title, selftext, url);
 
       if (groqResult.success) {
@@ -367,11 +326,9 @@ async function runAggregation() {
   console.log(`⏰ ${new Date().toISOString()}`);
 
   try {
-    // RSS feeds
     const rssArticles = await scrapeRSSFeeds();
     console.log(`\n📊 RSS: Found ${rssArticles.length} new articles`);
 
-    // Reddit
     const redditGames = await scrapeReddit('Games');
     const redditPC = await scrapeReddit('pcgaming');
     console.log(`\n📊 Reddit: Found ${redditGames.length + redditPC.length} new articles`);
@@ -393,7 +350,6 @@ async function start() {
   console.log('🚀 Gaming News Aggregator Backend Starting...');
   console.log('📍 Environment:', process.env.NODE_ENV || 'development');
 
-  // Test Groq connection
   try {
     const testMessage = await groq.messages.create({
       model: 'mixtral-8x7b-32768',
@@ -406,7 +362,6 @@ async function start() {
     process.exit(1);
   }
 
-  // Test Supabase connection
   try {
     const { data } = await supabase.from('articles').select('count()').single();
     console.log('✅ Supabase connected');
@@ -415,10 +370,8 @@ async function start() {
     process.exit(1);
   }
 
-  // Run initial aggregation
   await runAggregation();
 
-  // Poll every 30 minutes
   setInterval(runAggregation, 30 * 60 * 1000);
   console.log('🔄 Polling every 30 minutes');
 }
