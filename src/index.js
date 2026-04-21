@@ -176,7 +176,7 @@ function passesStage1Filter(title, snippet) {
 }
 
 // ============================================
-// STAGE 2: GROQ PROCESSING (HTTP API)
+// STAGE 2: GROQ PROCESSING (HTTP API - FIXED)
 // ============================================
 
 async function processWithGroq(title, summary, url) {
@@ -212,7 +212,8 @@ Impact score: 1-10`;
           },
         ],
         max_tokens: 500,
-        temperature: 0.7,
+        temperature: 0.3,
+        top_p: 1,
       },
       {
         headers: {
@@ -238,7 +239,7 @@ Impact score: 1-10`;
       success: true,
     };
   } catch (error) {
-    console.error("Groq processing error:", error.message);
+    console.error("Groq processing error:", error.response?.status, error.message);
     return { success: false, error: error.message };
   }
 }
@@ -472,10 +473,12 @@ async function start() {
         messages: [
           {
             role: "user",
-            content: "Test",
+            content: "Respond with: test success",
           },
         ],
         max_tokens: 10,
+        temperature: 0.3,
+        top_p: 1,
       },
       {
         headers: {
@@ -486,7 +489,7 @@ async function start() {
     );
     console.log("✅ Groq API connected");
   } catch (error) {
-    console.error("❌ Groq API error:", error.message);
+    console.error("❌ Groq API error:", error.response?.status, error.message);
     process.exit(1);
   }
 
