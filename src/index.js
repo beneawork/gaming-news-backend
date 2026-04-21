@@ -19,165 +19,52 @@ const rssParser = new Parser({
   },
 });
 
-// ============================================
-// CONFIGURATION & DECISION MATRIX
-// ============================================
-
 const DECISION_MATRIX = {
   priorityKeywords: [
-    "Sony",
-    "Microsoft",
-    "Nintendo",
-    "Take-Two",
-    "Ubisoft",
-    "Square Enix",
-    "Capcom",
-    "Bandai Namco",
-    "Activision",
-    "Rockstar",
-    "Bethesda",
-    "SEGA",
-    "Konami",
-    "Embracer",
-    "Devolver",
-    "FromSoftware",
-    "Obsidian",
-    "Remedy",
-    "Naughty Dog",
-    "Insomniac",
-    "Bungie",
-    "Epic",
-    "Valve",
-    "Blizzard",
-    "Annapurna",
-    "Raw Fury",
-    "Team17",
-    "acquisition",
-    "acquired",
-    "buyout",
-    "merger",
-    "layoffs",
-    "restructuring",
-    "shutdown",
-    "closure",
-    "IPO",
-    "going public",
-    "funding round",
-    "partnership",
-    "collaboration",
-    "launch",
-    "release",
-    "announcement",
-    "reveals",
-    "resignation",
-    "CEO change",
-    "new CEO",
-    "new president",
-    "founded",
-    "game sales",
-    "sales figures",
-    "GTA",
-    "Grand Theft Auto",
-    "Elder Scrolls",
-    "Final Fantasy",
-    "Call of Duty",
-    "Assassin's Creed",
-    "Legend of Zelda",
-    "Mario",
-    "Pokémon",
-    "Fortnite",
-    "Elden Ring",
-    "Baldur's Gate",
-    "Starfield",
-    "Cyberpunk",
-    "Diablo",
-    "Overwatch",
-    "World of Warcraft",
+    "Sony", "Microsoft", "Nintendo", "Take-Two", "Ubisoft", "Square Enix", "Capcom",
+    "Bandai Namco", "Activision", "Rockstar", "Bethesda", "SEGA", "Konami", "Embracer",
+    "Devolver", "FromSoftware", "Obsidian", "Remedy", "Naughty Dog", "Insomniac",
+    "Bungie", "Epic", "Valve", "Blizzard", "Annapurna", "Raw Fury", "Team17",
+    "acquisition", "acquired", "buyout", "merger", "layoffs", "restructuring",
+    "shutdown", "closure", "IPO", "going public", "funding round", "partnership",
+    "collaboration", "launch", "release", "announcement", "reveals", "resignation",
+    "CEO change", "new CEO", "new president", "founded", "game sales", "sales figures",
+    "GTA", "Grand Theft Auto", "Elder Scrolls", "Final Fantasy", "Call of Duty",
+    "Assassin's Creed", "Legend of Zelda", "Mario", "Pokémon", "Fortnite",
+    "Elden Ring", "Baldur's Gate", "Starfield", "Cyberpunk", "Diablo",
+    "Overwatch", "World of Warcraft",
   ],
-
   exclusionKeywords: [
-    "esports",
-    "tournament",
-    "esports league",
-    "LAN event",
-    "competitive gaming",
-    "Twitch",
-    "streamer",
-    "Kick",
-    "YouTube Gaming",
-    "live streaming",
-    "stream",
-    "iOS game",
-    "Android exclusive",
-    "mobile gaming",
-    "app store",
-    "roguelike difficulty",
-    "roguelike design",
-    "difficulty settings",
-    "soulslike",
-    "YouTuber",
-    "streamer feud",
-    "influencer beef",
-    "gaming debate",
-    "fandom discourse",
-    "console wars",
-    "PC vs console",
-    "review",
-    "rated",
-    "review score",
-    "rating",
-    "hardware review",
-    "gaming chair",
-    "gaming peripherals",
-    "gaming setup",
-    "patch notes",
-    "mod showcase",
-    "community creation",
+    "esports", "tournament", "esports league", "LAN event", "competitive gaming",
+    "Twitch", "streamer", "Kick", "YouTube Gaming", "live streaming", "stream",
+    "iOS game", "Android exclusive", "mobile gaming", "app store",
+    "roguelike difficulty", "roguelike design", "difficulty settings", "soulslike",
+    "YouTuber", "streamer feud", "influencer beef", "gaming debate",
+    "fandom discourse", "console wars", "PC vs console",
+    "review", "rated", "review score", "rating", "hardware review",
+    "gaming chair", "gaming peripherals", "gaming setup", "patch notes",
+    "mod showcase", "community creation",
   ],
-
   blacklist: ["EA", "Electronic Arts"],
-
-  priorityRegions: [
-    "US",
-    "EU",
-    "Japan",
-    "South Korea",
-    "Canada",
-    "Australia",
-  ],
+  priorityRegions: ["US", "EU", "Japan", "South Korea", "Canada", "Australia"],
 };
-
-// ============================================
-// STAGE 1: KEYWORD PRE-FILTER
-// ============================================
 
 function passesStage1Filter(title, snippet) {
   const text = `${title} ${snippet}`.toLowerCase();
-
   const hasPriority = DECISION_MATRIX.priorityKeywords.some((keyword) =>
     text.includes(keyword.toLowerCase())
   );
-
   if (!hasPriority) return false;
-
   const hasExclusion = DECISION_MATRIX.exclusionKeywords.some((keyword) =>
     text.includes(keyword.toLowerCase())
   );
-
   if (hasExclusion) return false;
-
   const isBlacklisted = DECISION_MATRIX.blacklist.some((company) =>
     text.includes(company.toLowerCase())
   );
-
   if (isBlacklisted) return false;
-
   return true;
 }
-
-// ============================================
-// STAGE 2: GROQ PROCESSING (HTTP API - FIXED)
-// ============================================
 
 async function processWithGroq(title, summary, url) {
   try {
@@ -201,20 +88,16 @@ Company tiers: aaa, mid_tier, indie_publisher
 Sentiment: positive, neutral, negative
 Impact score: 1-10`;
 
+    const requestBody = {
+      model: "mixtral-8x7b-32768",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 500,
+    };
+
+    console.log("📤 Sending request to Groq...");
     const response = await axios.post(
       "https://api.groq.com/openai/v1/chat/completions",
-      {
-        model: "mixtral-8x7b-32768",
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        max_tokens: 500,
-        temperature: 0.3,
-        top_p: 1,
-      },
+      requestBody,
       {
         headers: {
           Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
@@ -239,14 +122,15 @@ Impact score: 1-10`;
       success: true,
     };
   } catch (error) {
-    console.error("Groq processing error:", error.response?.status, error.message);
+    console.error("❌ GROQ ERROR DETAILS:");
+    console.error("Status Code:", error.response?.status);
+    console.error("Status Text:", error.response?.statusText);
+    console.error("Error Message:", error.message);
+    console.error("Full Response:", JSON.stringify(error.response?.data, null, 2));
+    console.error("Request Headers:", error.config?.headers);
     return { success: false, error: error.message };
   }
 }
-
-// ============================================
-// STAGE 3: RELEVANCE SCORING
-// ============================================
 
 function calculateDigestScore(article) {
   let score = article.impact_score || 5;
@@ -264,13 +148,8 @@ function calculateDigestScore(article) {
   return Math.min(score, 10);
 }
 
-// ============================================
-// RSS FEED SCRAPING
-// ============================================
-
 async function scrapeRSSFeeds() {
   console.log("🔄 Starting RSS feed scrape...");
-
   const { data: sources } = await supabase
     .from("feed_sources")
     .select("*")
@@ -358,10 +237,6 @@ async function scrapeRSSFeeds() {
   return newArticles;
 }
 
-// ============================================
-// REDDIT SCRAPING
-// ============================================
-
 async function scrapeReddit(subreddit) {
   try {
     console.log(`📱 Scraping r/${subreddit}...`);
@@ -429,10 +304,6 @@ async function scrapeReddit(subreddit) {
   }
 }
 
-// ============================================
-// MAIN AGGREGATION LOOP
-// ============================================
-
 async function runAggregation() {
   console.log("\n🎮 Gaming News Aggregator - Starting polling cycle...");
   console.log(`⏰ ${new Date().toISOString()}`);
@@ -456,30 +327,22 @@ async function runAggregation() {
   console.log("✅ Polling cycle complete\n");
 }
 
-// ============================================
-// STARTUP & SCHEDULING
-// ============================================
-
 async function start() {
   console.log("🚀 Gaming News Aggregator Backend Starting...");
   console.log("📍 Environment:", process.env.NODE_ENV || "development");
+  console.log("🔑 API Key present:", !!process.env.GROQ_API_KEY);
 
-  // Test Groq connection
   try {
-    const response = await axios.post(
+    console.log("🔍 Testing Groq API connection...");
+    const testBody = {
+      model: "mixtral-8x7b-32768",
+      messages: [{ role: "user", content: "Say: success" }],
+      max_tokens: 10,
+    };
+
+    const testResponse = await axios.post(
       "https://api.groq.com/openai/v1/chat/completions",
-      {
-        model: "mixtral-8x7b-32768",
-        messages: [
-          {
-            role: "user",
-            content: "Respond with: test success",
-          },
-        ],
-        max_tokens: 10,
-        temperature: 0.3,
-        top_p: 1,
-      },
+      testBody,
       {
         headers: {
           Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
@@ -487,13 +350,16 @@ async function start() {
         },
       }
     );
-    console.log("✅ Groq API connected");
+    console.log("✅ Groq API connected successfully");
   } catch (error) {
-    console.error("❌ Groq API error:", error.response?.status, error.message);
+    console.error("❌ GROQ TEST FAILED - ERROR DETAILS:");
+    console.error("Status Code:", error.response?.status);
+    console.error("Status Text:", error.response?.statusText);
+    console.error("Error Message:", error.message);
+    console.error("Full Response:", JSON.stringify(error.response?.data, null, 2));
     process.exit(1);
   }
 
-  // Test Supabase connection
   try {
     const { data } = await supabase
       .from("articles")
