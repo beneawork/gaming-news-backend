@@ -19,6 +19,8 @@ const rssParser = new Parser({
   },
 });
 
+let ACTIVE_MODEL = null;
+
 const DECISION_MATRIX = {
   priorityKeywords: [
     "Sony", "Microsoft", "Nintendo", "Take-Two", "Ubisoft", "Square Enix", "Capcom",
@@ -48,6 +50,54 @@ const DECISION_MATRIX = {
   blacklist: ["EA", "Electronic Arts"],
   priorityRegions: ["US", "EU", "Japan", "South Korea", "Canada", "Australia"],
 };
+
+async function detectAvailableModel() {
+  try {
+    console.log("🔍 Detecting available Groq models...");
+    const response = await axios.get(
+      "https://api.groq.com/openai/v1/models",
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        },
+      }
+    );
+
+    const models = response.data.data;
+    console.log("📋 Available models:", models.map((m) => m.id).join(", "));
+
+    // Try to find a suitable model in order of preference
+    const preferredModels = [
+      "llama-3.3-70b-versatile",
+      "llama-3.2-90b-vision-preview",
+      "llama-3.1-405b-reasoning",
+      "llama-3.1-70b-versatile",
+      "llama-3.1-8b-instant",
+      "mixtral-8x7b-32768",
+    ];
+
+    for (const modelName of preferredModels) {
+      if (models.some((m) => m.id === modelName)) {
+        console.log(`✅ Selected model: ${modelName}`);
+        return modelName;
+      }
+    }
+
+    // If no preferred model found, use the first available model
+    if (models.length > 0) {
+      const fallbackModel = models[0].id;
+      console.log(`✅ Using fallback model: ${fallbackModel}`);
+      return fallbackModel;
+    }
+
+    throw new Error("No models available");
+  } catch (error) {
+    console.error("❌ Error detecting models:");
+    console.error("Status:", error.response?.status);
+    console.error("Message:", error.message);
+    throw error;
+  }
+}
 
 function passesStage1Filter(title, snippet) {
   const text = `${title} ${snippet}`.toLowerCase();
@@ -89,12 +139,12 @@ Sentiment: positive, neutral, negative
 Impact score: 1-10`;
 
     const requestBody = {
-      model: "llama-3.1-70b-versatile",
+      model: ACTIVE_MODEL,
       messages: [{ role: "user", content: prompt }],
       max_tokens: 500,
     };
 
-    console.log("📤 Sending request to Groq with llama-3.1-70b-versatile...");
+    console.log(`📤 Sending request to Groq with ${ACTIVE_MODEL}...`);
     const response = await axios.post(
       "https://api.groq.com/openai/v1/chat/completions",
       requestBody,
@@ -332,30 +382,10 @@ async function start() {
   console.log("🔑 API Key present:", !!process.env.GROQ_API_KEY);
 
   try {
-    console.log("🔍 Testing Groq API connection with llama-3.1-70b-versatile...");
-    const testBody = {
-      model: "llama-3.1-70b-versatile",
-      messages: [{ role: "user", content: "Say: success" }],
-      max_tokens: 10,
-    };
-
-    const testResponse = await axios.post(
-      "https://api.groq.com/openai/v1/chat/completions",
-      testBody,
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-    console.log("✅ Groq API connected successfully with llama-3.1-70b-versatile");
+    ACTIVE_MODEL = await detectAvailableModel();
+    console.log(`✅ Groq API connected with model: ${ACTIVE_MODEL}`);
   } catch (error) {
-    console.error("❌ GROQ TEST FAILED - ERROR DETAILS:");
-    console.error("Status Code:", error.response?.status);
-    console.error("Status Text:", error.response?.statusText);
-    console.error("Error Message:", error.message);
-    console.error("Full Response:", JSON.stringify(error.response?.data, null, 2));
+    console.error("❌ Failed to detect Groq model");
     process.exit(1);
   }
 
