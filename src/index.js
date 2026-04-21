@@ -66,7 +66,6 @@ async function detectAvailableModel() {
     const models = response.data.data;
     console.log("📋 Available models:", models.map((m) => m.id).join(", "));
 
-    // Try to find a suitable model in order of preference
     const preferredModels = [
       "llama-3.3-70b-versatile",
       "llama-3.2-90b-vision-preview",
@@ -83,7 +82,6 @@ async function detectAvailableModel() {
       }
     }
 
-    // If no preferred model found, use the first available model
     if (models.length > 0) {
       const fallbackModel = models[0].id;
       console.log(`✅ Using fallback model: ${fallbackModel}`);
@@ -402,8 +400,12 @@ async function start() {
 
   await runAggregation();
 
-  setInterval(runAggregation, 30 * 60 * 1000);
-  console.log("🔄 Polling every 30 minutes");
+  const pollingInterval = 15 * 60 * 1000;
+  console.log(`🔄 Polling every 15 minutes (${pollingInterval}ms)`);
+  
+  setInterval(async () => {
+    await runAggregation();
+  }, pollingInterval);
 }
 
 start().catch((error) => {
