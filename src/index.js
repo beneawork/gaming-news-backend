@@ -1,4 +1,4 @@
-import Groq from "@groq/sdk";
+import Groq from "groq-sdk";
 import Parser from "rss-parser";
 import axios from "axios";
 import { createClient } from "@supabase/supabase-js";
@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// Initialize Groq with correct import
+// Initialize Groq
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
@@ -207,13 +207,14 @@ Company tiers: aaa, mid_tier, indie_publisher
 Sentiment: positive, neutral, negative
 Impact score: 1-10`;
 
-    const message = await groq.chat.completions.create({
+    const message = await groq.messages.create({
       model: "mixtral-8x7b-32768",
       max_tokens: 500,
       messages: [{ role: "user", content: prompt }],
     });
 
-    const responseText = message.choices[0].message.content;
+    const responseText =
+      message.content[0].type === "text" ? message.content[0].text : "";
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON found in response");
 
@@ -455,7 +456,7 @@ async function start() {
   console.log("📍 Environment:", process.env.NODE_ENV || "development");
 
   try {
-    const testMessage = await groq.chat.completions.create({
+    const testMessage = await groq.messages.create({
       model: "mixtral-8x7b-32768",
       max_tokens: 10,
       messages: [{ role: "user", content: "Test" }],
